@@ -7,8 +7,37 @@
         <h1>Historique des recherches</h1>
         <p class="muted">Consulter une entrée réaffiche l'archive telle quelle — aucune requête n'est renvoyée vers Shodan.</p>
 
+        <form method="GET" action="{{ route('searches.index') }}">
+            <div class="filter-grid">
+                <div>
+                    <label for="from">Du</label>
+                    <input type="datetime-local" id="from" name="from" step="1" value="{{ request('from') }}">
+                </div>
+                <div>
+                    <label for="to">Au</label>
+                    <input type="datetime-local" id="to" name="to" step="1" value="{{ request('to') }}">
+                </div>
+            </div>
+            @error('from')
+                <div class="error">{{ $message }}</div>
+            @enderror
+            @error('to')
+                <div class="error">{{ $message }}</div>
+            @enderror
+            <button type="submit">Filtrer</button>
+            @if (request('from') || request('to'))
+                <a href="{{ route('searches.index') }}" class="muted" style="margin-left:.75rem;">Réinitialiser</a>
+            @endif
+        </form>
+
         @if ($searches->isEmpty())
-            <p class="muted">Aucune recherche enregistrée pour l'instant. <a href="{{ route('searches.create') }}">Lancer la première</a>.</p>
+            <p class="muted">
+                @if (request('from') || request('to'))
+                    Aucune recherche archivée sur cette période.
+                @else
+                    Aucune recherche enregistrée pour l'instant. <a href="{{ route('searches.create') }}">Lancer la première</a>.
+                @endif
+            </p>
         @else
             <table>
                 <thead>

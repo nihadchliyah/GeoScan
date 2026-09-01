@@ -18,15 +18,10 @@ use Illuminate\Support\Facades\Http;
  *   requests, regardless of which HTTP request triggered them.
  * - Every request is sent with an identifiable User-Agent
  *   (`shodan.user_agent`) rather than a browser-spoofing one.
- *
- * When the optional login extension is enabled (see ShodanSession), an
- * authenticated cookie jar is attached to every request too.
  */
 class ShodanHttpClient
 {
     private const LAST_REQUEST_CACHE_KEY = 'shodan:last_request_at';
-
-    public function __construct(private readonly ShodanSession $session) {}
 
     public function get(string $path, array $query = []): Response
     {
@@ -38,10 +33,6 @@ class ShodanHttpClient
 
         if ($caBundle = config('shodan.ca_bundle')) {
             $request = $request->withOptions(['verify' => $caBundle]);
-        }
-
-        if ($jar = $this->session->cookieJar()) {
-            $request = $request->withOptions(['cookies' => $jar]);
         }
 
         $response = $request->get(rtrim(config('shodan.base_url'), '/').$path, $query);

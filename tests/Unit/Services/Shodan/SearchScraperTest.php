@@ -5,7 +5,6 @@ namespace Tests\Unit\Services\Shodan;
 use App\Enums\RankingType;
 use App\Services\Shodan\SearchScraper;
 use App\Services\Shodan\ShodanHttpClient;
-use App\Services\Shodan\ShodanSession;
 use PHPUnit\Framework\TestCase;
 
 class SearchScraperTest extends TestCase
@@ -16,7 +15,7 @@ class SearchScraperTest extends TestCase
     {
         parent::setUp();
 
-        $this->scraper = new SearchScraper(new ShodanHttpClient(new ShodanSession));
+        $this->scraper = new SearchScraper(new ShodanHttpClient);
     }
 
     public function test_it_parses_the_total_results_count(): void

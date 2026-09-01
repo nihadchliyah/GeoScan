@@ -19,6 +19,19 @@ Deux parcours :
    ne relance **jamais** de requête vers Shodan : c'est une relecture pure de
    ce qui a été enregistré.
 
+   La page de résultats liste aussi individuellement chaque IP trouvée (une
+   dizaine, la limite anonyme). Pour chacune, l'appli va chercher sa fiche
+   hôte (`shodan.io/host/{ip}`, avec le même cooldown que le parcours *Fiche
+   hôte*) afin d'obtenir sa position GPS **exacte** — contrairement à la
+   carte des pays (juste en dessous du total), qui n'est qu'une
+   approximation par centroïde de pays puisque la page de recherche ne
+   donne que pays + ville en texte, jamais de coordonnées. Conséquence
+   directe de la politique de crawl ci-dessous : une recherche peut prendre
+   **plusieurs minutes** (délai de 10s × jusqu'à 10 fiches hôte en plus de
+   la recherche elle-même) ; un résultat dont la fiche hôte échoue à
+   scraper est simplement absent de la carte, sans faire échouer la
+   recherche.
+
 2. **Fiche hôte** — tu tapes une IP, l'appli va chercher
    `shodan.io/host/{ip}` (pays, ville, organisation, FAI, ASN, noms d'hôte,
    domaines, technologies web, ports ouverts, coordonnées GPS) et en garde
@@ -29,14 +42,14 @@ Deux parcours :
    plus une ligne du temps de tous les précédents — utile pour voir un hôte
    changer d'organisation ou de ports ouverts entre deux visites.
 
-> ⚠️ Sans compte Shodan connecté, les filtres de recherche avancés
-> (`country:`, `org:`, …) sont refusés par Shodan lui-même — utilise des
-> requêtes libres (`apache`, `nginx`…) pour la démo. Voir *Aller plus loin*
-> ci-dessous.
+> ⚠️ L'application ne se connecte jamais à un compte Shodan. En anonyme,
+> Shodan refuse les filtres de recherche avancés (`country:`, `org:`,
+> `port:`…) et bloque la page 2 des résultats — utilise des requêtes libres
+> (`apache`, `nginx`, `webcam`…).
 
 ### Schéma de données
 
-Quatre tables, avec l'entité stable séparée de son historique :
+Cinq tables, avec l'entité stable séparée de son historique :
 
 | Table             | Rôle                                                          |
 |--------------------|----------------------------------------------------------------|
@@ -44,6 +57,7 @@ Quatre tables, avec l'entité stable séparée de son historique :
 | `search_rankings`  | Les classements « Top » attachés à chaque recherche            |
 | `hosts`            | Une ligne par IP jamais vue plus d'une fois                    |
 | `host_snapshots`   | Une nouvelle ligne à **chaque visite** d'une fiche hôte (jamais de mise à jour en place) |
+| `search_results`   | Table pivot : quel instantané d'hôte appartient à quelle recherche, et à quelle position (pour la carte des résultats exacts) |
 
 ### Politique de crawl
 
@@ -78,7 +92,9 @@ vers le formulaire de recherche.
 
 - **Nouvelle recherche** : tape une requête libre (ex. `apache`) et lance-la.
 - **Historique** : liste toutes les recherches déjà archivées ; cliquer sur
-  une entrée la réaffiche telle qu'enregistrée, sans nouvelle requête.
+  une entrée la réaffiche telle qu'enregistrée, sans nouvelle requête. Un
+  filtre « Du / Au » (date + heure, à la seconde près) permet de ne
+  réafficher que les recherches archivées sur une période précise.
 - **Fiche hôte : IP** (en haut à droite) : tape une IP (ex. `8.8.8.8`) pour
   voir sa fiche et sa ligne du temps.
 
@@ -95,9 +111,10 @@ réponses simulées via `Http::fake()`. Ils couvrent :
 - le parsing de la page de recherche (`tests/Unit/Services/Shodan/SearchScraperTest.php`) ;
 - le parsing de la fiche hôte (`tests/Unit/Services/Shodan/HostScraperTest.php`) ;
 - la persistance d'une recherche archivée, y compris qu'un replay depuis
-  l'historique ne déclenche aucune requête (`tests/Feature/SearchServiceTest.php`) ;
+  l'historique ne déclenche aucune requête, et la récupération des
+  positions exactes de chaque résultat individuel (`tests/Feature/SearchServiceTest.php`) ;
 - le garde-fou de cooldown sur les fiches hôte (`tests/Feature/HostSnapshotServiceTest.php`) ;
-- la connexion à un compte Shodan et son cache de session (`tests/Feature/ShodanSessionTest.php`).
+- le filtre par date/heure sur l'historique (`tests/Feature/SearchControllerTest.php`).
 
 ## Configuration (`.env`)
 
@@ -109,34 +126,6 @@ réponses simulées via `Http::fake()`. Ils couvrent :
 | `SHODAN_REQUEST_TIMEOUT_SECONDS` | `30` | Timeout HTTP |
 | `SHODAN_SNAPSHOT_COOLDOWN_MINUTES` | `5` | Durée pendant laquelle un instantané d'hôte est réutilisé au lieu d'être rescrapé |
 | `SHODAN_CA_BUNDLE` | *(vide)* | À ne renseigner que si ton `php.ini` a un `curl.cainfo` cassé (voir plus bas) |
-
-### Aller plus loin : compte Shodan connecté
-
-Sans connexion, Shodan refuse les filtres de recherche (`country:`, `org:`,
-`port:`…) et bloque déjà la page 2 des résultats (« Please create a Shodan
-account and log in to access more results. »). Pour lever ces limites,
-l'appli peut se connecter à un **vrai compte Shodan** avec tes identifiants :
-
-```env
-SHODAN_LOGIN_ENABLED=true
-SHODAN_EMAIL=ton-email@exemple.com
-SHODAN_PASSWORD=ton-mot-de-passe
-```
-
-Ce que ça fait concrètement ([`ShodanSession`](app/Services/Shodan/ShodanSession.php)) :
-récupère le jeton CSRF sur `account.shodan.io/login`, poste tes identifiants,
-garde les cookies de session obtenus (mis en cache 6h), et
-[`ShodanHttpClient`](app/Services/Shodan/ShodanHttpClient.php) les attache
-ensuite à chaque requête vers `www.shodan.io`.
-
-**Statut** : le formulaire de connexion a été analysé sur une vraie page
-(champs, jeton CSRF), mais **le POST de connexion en lui-même n'a pas pu
-être testé en direct avec un vrai compte** pendant le développement — teste-le
-avec tes propres identifiants, et si Shodan répond autrement que prévu (une
-vérification captcha/2FA, par exemple), il faudra ajuster
-`ShodanSession::looksLoggedIn()`. Tes identifiants ne sont envoyés qu'au
-formulaire de connexion officiel de Shodan, jamais ailleurs, et ne quittent
-jamais ton `.env` local (jamais commité).
 
 ### Aller plus loin : carte de la fiche hôte
 

@@ -4,6 +4,7 @@ namespace App\Services\Shodan;
 
 use App\Models\Search;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Runs a search against shodan.io and persists it as a permanent, immutable
@@ -13,13 +14,16 @@ use Illuminate\Support\Facades\DB;
  */
 class SearchService
 {
-    public function __construct(private readonly SearchScraper $scraper) {}
+    public function __construct(
+        private readonly SearchScraper $scraper,
+        private readonly HostSnapshotService $hostSnapshotService,
+    ) {}
 
     public function search(string $query): Search
     {
         $data = $this->scraper->fetch($query);
 
-        return DB::transaction(function () use ($query, $data) {
+        $search = DB::transaction(function () use ($query, $data) {
             $search = Search::create([
                 'query' => $query,
                 'total_results' => $data->totalResults,
@@ -36,7 +40,33 @@ class SearchService
                     ->all()
             );
 
-            return $search->load('rankings');
+            return $search;
         });
+
+        $this->attachResultLocations($search, $data->resultIps);
+
+        return $search->load(['rankings', 'hostSnapshots.host']);
+    }
+
+    /**
+     * For each individually listed result, fetch (or reuse, per the usual
+     * cooldown) its host page for its exact GPS coordinates. This is a
+     * best-effort enrichment: the search itself is already archived above,
+     * so one host page failing to scrape must not lose the whole search —
+     * it's simply left off the results map.
+     *
+     * @param  array<int, string>  $ips
+     */
+    private function attachResultLocations(Search $search, array $ips): void
+    {
+        foreach ($ips as $position => $ip) {
+            try {
+                $snapshot = $this->hostSnapshotService->getOrFetch($ip);
+            } catch (Throwable) {
+                continue;
+            }
+
+            $search->hostSnapshots()->attach($snapshot->id, ['position' => $position]);
+        }
     }
 }

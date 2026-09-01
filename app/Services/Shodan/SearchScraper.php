@@ -39,6 +39,7 @@ class SearchScraper
         return new SearchPageData(
             totalResults: $this->parseTotalResults($summary),
             rankings: $this->parseRankings($summary),
+            resultIps: $this->parseResultIps($crawler),
         );
     }
 
@@ -56,7 +57,7 @@ class SearchScraper
             $message = trim(preg_replace('/\s+/', ' ', $alert->text()));
             $message = preg_replace('/^Error:\s*/i', '', $message);
 
-            return "Shodan a refusé cette recherche : \"{$message}\". Essaie une requête libre, sans filtre (ex. \"apache\"), ou connecte un compte Shodan (voir SHODAN_EMAIL/SHODAN_PASSWORD).";
+            return "Shodan a refusé cette recherche : \"{$message}\". Essaie une requête libre, sans filtre (ex. \"apache\").";
         }
 
         return 'Impossible de lire la page de résultats Shodan (structure de page changée, ou réponse inattendue).';
@@ -101,6 +102,28 @@ class SearchScraper
         }
 
         return $rankings;
+    }
+
+    /**
+     * Each listed result links its IP via `/host/{ip}` in its heading —
+     * the only place shodan.io exposes individual result IPs on the
+     * anonymous, paginated search page (typically up to 10 per page).
+     *
+     * @return array<int, string>
+     */
+    private function parseResultIps(Crawler $crawler): array
+    {
+        $ips = [];
+
+        foreach ($crawler->filter('.results .result .heading a.title') as $node) {
+            $href = (new Crawler($node))->attr('href');
+
+            if ($href !== null && preg_match('#^/host/([\d.]+)$#', $href, $matches)) {
+                $ips[] = $matches[1];
+            }
+        }
+
+        return $ips;
     }
 
     /**

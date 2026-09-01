@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Search;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -33,29 +34,37 @@ class SearchControllerTest extends TestCase
         $this->assertDatabaseCount('searches', 0);
     }
 
-    public function test_filled_filter_fields_are_composed_into_the_shodan_query_syntax(): void
-    {
-        Http::fake(['shodan.io/*' => Http::response($this->fixture(), 200)]);
-
-        $this->post(route('searches.store'), [
-            'query' => 'apache',
-            'country' => 'France',
-            'port' => '22',
-            'org' => 'Some "Quoted" Org',
-        ]);
-
-        Http::assertSent(function (Request $request) {
-            return $request['query'] === 'apache country:"France" org:"Some Quoted Org" port:22';
-        });
-    }
-
-    public function test_empty_filter_fields_are_left_out_of_the_query(): void
+    public function test_the_free_text_query_is_sent_to_shodan_as_is(): void
     {
         Http::fake(['shodan.io/*' => Http::response($this->fixture(), 200)]);
 
         $this->post(route('searches.store'), ['query' => 'apache']);
 
-        Http::assertSent(fn (Request $request) => $request['query'] === 'apache');
+        Http::assertSent(fn (Request $request) => str_contains($request->url(), '/search') && $request['query'] === 'apache');
+    }
+
+    public function test_the_history_can_be_narrowed_to_a_precise_date_time_range(): void
+    {
+        $before = Search::factory()->create(['query' => 'too-early', 'searched_at' => '2026-01-01 08:00:00']);
+        $inRange = Search::factory()->create(['query' => 'in-range', 'searched_at' => '2026-01-01 12:30:15']);
+        $after = Search::factory()->create(['query' => 'too-late', 'searched_at' => '2026-01-01 18:00:00']);
+
+        $response = $this->get(route('searches.index', [
+            'from' => '2026-01-01T12:00:00',
+            'to' => '2026-01-01T13:00:00',
+        ]));
+
+        $response->assertOk();
+        $response->assertSeeText($inRange->query);
+        $response->assertDontSeeText($before->query);
+        $response->assertDontSeeText($after->query);
+    }
+
+    public function test_an_invalid_date_filter_is_rejected(): void
+    {
+        $response = $this->get(route('searches.index', ['from' => 'not-a-date']));
+
+        $response->assertSessionHasErrors('from');
     }
 
     private function fixture(): string

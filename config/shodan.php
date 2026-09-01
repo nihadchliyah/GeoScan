@@ -53,25 +53,4 @@ return [
     */
     'snapshot_cooldown_minutes' => (int) env('SHODAN_SNAPSHOT_COOLDOWN_MINUTES', 5),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Optional Shodan account login (extension, disabled by default)
-    |--------------------------------------------------------------------------
-    |
-    | Logging in unlocks what anonymous visitors get refused: search
-    | filters (country:, org:, ...), extra result pages, extra host-page
-    | sections. This is a "go further" extension, not part of the core
-    | TP. See App\Services\Shodan\ShodanSession for the login flow.
-    |
-    | Use your own real Shodan account. These credentials are read from
-    | .env only (never committed) and sent only to shodan.io's own login
-    | form — nowhere else.
-    |
-    */
-    'login' => [
-        'enabled' => (bool) env('SHODAN_LOGIN_ENABLED', false),
-        'email' => env('SHODAN_EMAIL'),
-        'password' => env('SHODAN_PASSWORD'),
-    ],
-
 ];

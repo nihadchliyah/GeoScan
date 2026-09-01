@@ -4,7 +4,6 @@ namespace Tests\Unit\Services\Shodan;
 
 use App\Services\Shodan\HostScraper;
 use App\Services\Shodan\ShodanHttpClient;
-use App\Services\Shodan\ShodanSession;
 use PHPUnit\Framework\TestCase;
 
 class HostScraperTest extends TestCase
@@ -15,7 +14,7 @@ class HostScraperTest extends TestCase
     {
         parent::setUp();
 
-        $this->scraper = new HostScraper(new ShodanHttpClient(new ShodanSession));
+        $this->scraper = new HostScraper(new ShodanHttpClient);
     }
 
     public function test_it_parses_general_information(): void

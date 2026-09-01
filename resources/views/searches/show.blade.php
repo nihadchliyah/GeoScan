@@ -27,6 +27,18 @@
             })
             ->filter()
             ->values();
+
+        $resultMarkers = $search->hostSnapshots
+            ->filter(fn ($snapshot) => $snapshot->latitude !== null && $snapshot->longitude !== null)
+            ->map(fn ($snapshot) => [
+                'ip' => $snapshot->host->ip,
+                'label' => trim(($snapshot->city ?? '').($snapshot->city && $snapshot->country ? ', ' : '').($snapshot->country ?? '')) ?: null,
+                'organization' => $snapshot->organization,
+                'lat' => $snapshot->latitude,
+                'lon' => $snapshot->longitude,
+                'url' => route('hosts.show', $snapshot->host->ip),
+            ])
+            ->values();
     @endphp
 
     @if ($countryMarkers->isNotEmpty())
@@ -37,6 +49,18 @@
                 Taille des cercles proportionnelle au nombre de résultats. Positions approximatives
                 (centroïde du pays — Shodan ne donne pas de coordonnées par hôte sur cette page,
                 seulement le total par pays).
+            </p>
+        </div>
+    @endif
+
+    @if ($resultMarkers->isNotEmpty())
+        <div class="card">
+            <h2>Carte des résultats (emplacement exact)</h2>
+            <div id="results-map" style="height:360px;border-radius:.4rem;"></div>
+            <p class="muted" style="margin:.5rem 0 0;">
+                {{ $resultMarkers->count() }} résultat(s) localisé(s) précisément — coordonnées GPS
+                réelles récupérées sur la fiche hôte de chaque IP (pas une approximation par pays).
+                Clique un marqueur pour ouvrir sa fiche.
             </p>
         </div>
     @endif
@@ -68,8 +92,11 @@
 @endsection
 
 @section('scripts')
-    @if ($countryMarkers->isNotEmpty())
+    @if ($countryMarkers->isNotEmpty() || $resultMarkers->isNotEmpty())
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    @endif
+
+    @if ($countryMarkers->isNotEmpty())
         <script>
             (function () {
                 var markers = @json($countryMarkers);
@@ -93,6 +120,36 @@
                         weight: 1,
                     }).bindTooltip(m.label + ' — ' + m.count.toLocaleString('fr-FR')).addTo(map);
                 });
+            })();
+        </script>
+    @endif
+
+    @if ($resultMarkers->isNotEmpty())
+        <script>
+            (function () {
+                var markers = @json($resultMarkers);
+                var map = L.map('results-map').setView([markers[0].lat, markers[0].lon], 3);
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; contributeurs OpenStreetMap',
+                    maxZoom: 18,
+                }).addTo(map);
+
+                var group = [];
+
+                markers.forEach(function (m) {
+                    var popup = '<strong>' + m.ip + '</strong>'
+                        + (m.organization ? '<br>' + m.organization : '')
+                        + (m.label ? '<br>' + m.label : '')
+                        + '<br><a href="' + m.url + '">voir la fiche</a>';
+
+                    var marker = L.marker([m.lat, m.lon]).bindPopup(popup).addTo(map);
+                    group.push(marker);
+                });
+
+                if (group.length > 1) {
+                    map.fitBounds(L.featureGroup(group).getBounds(), { padding: [30, 30] });
+                }
             })();
         </script>
     @endif
