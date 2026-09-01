@@ -1,0 +1,99 @@
+@extends('layouts.app')
+
+@section('title', 'GeoScan — ' . $search->query)
+
+@section('head')
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+@endsection
+
+@section('content')
+    <div class="card">
+        <p class="muted" style="margin:0 0 .5rem;">
+            Recherche archivée le {{ $search->searched_at->format('d/m/Y H:i') }} &middot;
+            <a href="{{ route('searches.index') }}">&larr; Historique</a>
+        </p>
+        <h1><code>{{ $search->query }}</code></h1>
+        <div class="stat">{{ number_format($search->total_results, 0, ',', ' ') }}</div>
+        <div class="muted">résultats au total</div>
+    </div>
+
+    @php
+        $grouped = $search->rankings->groupBy(fn ($r) => $r->type->value);
+        $countryMarkers = $grouped->get('country', collect())
+            ->map(function ($item) {
+                $coords = \App\Support\CountryCoordinates::lookup($item->label);
+
+                return $coords ? ['label' => $item->label, 'count' => $item->count, 'lat' => $coords[0], 'lon' => $coords[1]] : null;
+            })
+            ->filter()
+            ->values();
+    @endphp
+
+    @if ($countryMarkers->isNotEmpty())
+        <div class="card">
+            <h2>Carte des pays (Top Countries)</h2>
+            <div id="country-map" style="height:320px;border-radius:.4rem;"></div>
+            <p class="muted" style="margin:.5rem 0 0;">
+                Taille des cercles proportionnelle au nombre de résultats. Positions approximatives
+                (centroïde du pays — Shodan ne donne pas de coordonnées par hôte sur cette page,
+                seulement le total par pays).
+            </p>
+        </div>
+    @endif
+
+    <div class="grid-2">
+        @foreach (\App\Enums\RankingType::labels() as $type => $label)
+            @php
+                $items = $grouped->get($type, collect());
+                $max = $items->max('count') ?: 1;
+            @endphp
+            <div class="card">
+                <h2>{{ $label }}</h2>
+                @forelse ($items as $item)
+                    <div class="bar-row">
+                        <div class="bar-label">
+                            <span>{{ $item->label }}</span>
+                            <span class="muted">{{ number_format($item->count, 0, ',', ' ') }}</span>
+                        </div>
+                        <div class="bar-track">
+                            <div class="bar-fill" style="width: {{ round($item->count / $max * 100) }}%"></div>
+                        </div>
+                    </div>
+                @empty
+                    <p class="muted">Aucune donnée.</p>
+                @endforelse
+            </div>
+        @endforeach
+    </div>
+@endsection
+
+@section('scripts')
+    @if ($countryMarkers->isNotEmpty())
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script>
+            (function () {
+                var markers = @json($countryMarkers);
+                var map = L.map('country-map', { scrollWheelZoom: false }).setView([20, 10], 2);
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; contributeurs OpenStreetMap',
+                    maxZoom: 8,
+                }).addTo(map);
+
+                var maxCount = Math.max.apply(null, markers.map(function (m) { return m.count; })) || 1;
+
+                markers.forEach(function (m) {
+                    var radius = 8 + (m.count / maxCount) * 28;
+
+                    L.circleMarker([m.lat, m.lon], {
+                        radius: radius,
+                        color: '#ff5a1f',
+                        fillColor: '#ff5a1f',
+                        fillOpacity: 0.45,
+                        weight: 1,
+                    }).bindTooltip(m.label + ' — ' + m.count.toLocaleString('fr-FR')).addTo(map);
+                });
+            })();
+        </script>
+    @endif
+@endsection
