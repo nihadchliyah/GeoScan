@@ -2,9 +2,9 @@
 
 namespace App\Services\Shodan;
 
+use App\Jobs\FetchSearchResultLocationJob;
 use App\Models\Search;
 use Illuminate\Support\Facades\DB;
-use Throwable;
 
 /**
  * Runs a search against shodan.io and persists it as a permanent, immutable
@@ -14,10 +14,7 @@ use Throwable;
  */
 class SearchService
 {
-    public function __construct(
-        private readonly SearchScraper $scraper,
-        private readonly HostSnapshotService $hostSnapshotService,
-    ) {}
+    public function __construct(private readonly SearchScraper $scraper) {}
 
     public function search(string $query): Search
     {
@@ -27,6 +24,7 @@ class SearchService
             $search = Search::create([
                 'query' => $query,
                 'total_results' => $data->totalResults,
+                'expected_result_count' => count($data->resultIps),
                 'searched_at' => now(),
             ]);
 
@@ -43,30 +41,24 @@ class SearchService
             return $search;
         });
 
-        $this->attachResultLocations($search, $data->resultIps);
+        $this->dispatchResultLocationJobs($search, $data->resultIps);
 
         return $search->load(['rankings', 'hostSnapshots.host']);
     }
 
     /**
-     * For each individually listed result, fetch (or reuse, per the usual
-     * cooldown) its host page for its exact GPS coordinates. This is a
-     * best-effort enrichment: the search itself is already archived above,
-     * so one host page failing to scrape must not lose the whole search —
-     * it's simply left off the results map.
+     * For each individually listed result, queue a job that fetches (or
+     * reuses, per the usual cooldown) its host page for its exact GPS
+     * coordinates. Queued rather than fetched here so the search itself is
+     * archived and shown immediately, instead of the request blocking on
+     * shodan.io's crawl-delay for every one of these one by one.
      *
      * @param  array<int, string>  $ips
      */
-    private function attachResultLocations(Search $search, array $ips): void
+    private function dispatchResultLocationJobs(Search $search, array $ips): void
     {
         foreach ($ips as $position => $ip) {
-            try {
-                $snapshot = $this->hostSnapshotService->getOrFetch($ip);
-            } catch (Throwable) {
-                continue;
-            }
-
-            $search->hostSnapshots()->attach($snapshot->id, ['position' => $position]);
+            FetchSearchResultLocationJob::dispatch($search, $ip, $position);
         }
     }
 }

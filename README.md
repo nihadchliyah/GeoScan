@@ -9,7 +9,7 @@ maîtriser le scraping HTML (requêtes HTTP, parsing DOM), pas l'API Shodan.
 
 ## Ce que fait l'application
 
-Deux parcours :
+Quatre parcours :
 
 1. **Recherche** — tu tapes une requête (`apache`, `nginx`, `webcam`…),
    l'appli va chercher `shodan.io/search?query=...`, en extrait le nombre
@@ -42,10 +42,33 @@ Deux parcours :
    plus une ligne du temps de tous les précédents — utile pour voir un hôte
    changer d'organisation ou de ports ouverts entre deux visites.
 
+3. **Carte** (`/map`) — filtre **pays / ville / port** sur l'ensemble des
+   fiches hôte déjà collectées, toutes recherches et consultations
+   confondues, et affiche les correspondances sur une carte. Ce n'est
+   jamais une requête vers Shodan : c'est une relecture filtrée de la base
+   locale. C'est la façon dont l'appli obtient un filtrage par pays/port
+   **sans connexion** — puisque Shodan lui-même le refuse en anonyme (voir
+   avertissement ci-dessous), on scrape en requête libre puis on filtre
+   nous-mêmes ce qu'on a déjà accumulé. Plus on lance de recherches libres,
+   plus la carte a de données à filtrer.
+
+4. **Localiser une photo** (`/photo-location`) — aucun rapport avec
+   Shodan : lit les coordonnées GPS dans les métadonnées EXIF d'un fichier
+   JPEG/TIFF (celles qu'un téléphone y écrit si la localisation était
+   activée). La photo n'est jamais conservée sur le serveur. Un PNG, un
+   WEBP ou une capture d'écran ne contiennent jamais d'EXIF, donc jamais de
+   position — voir `app/Console/Commands/InspectPhotoExif.php`
+   (`php artisan app:inspect-photo-exif chemin/vers/photo.jpg`) pour
+   diagnostiquer pourquoi une photo donnée n'a rien donné.
+
 > ⚠️ L'application ne se connecte jamais à un compte Shodan. En anonyme,
-> Shodan refuse les filtres de recherche avancés (`country:`, `org:`,
-> `port:`…) et bloque la page 2 des résultats — utilise des requêtes libres
-> (`apache`, `nginx`, `webcam`…).
+> Shodan refuse lui-même les filtres de recherche avancés (`country:`,
+> `org:`, `port:`…) et bloque la page 2 des résultats — utilise des
+> requêtes libres (`apache`, `nginx`, `webcam`…) ; le filtrage par
+> pays/ville/port se fait après coup, localement, via la page *Carte*.
+> `images.shodan.io` (navigateur d'images) refuse aussi tout accès anonyme
+> (`401 Unauthorized`, testé) — la recherche par image n'est donc pas
+> possible dans cette version de l'appli.
 
 ### Schéma de données
 
@@ -97,6 +120,10 @@ vers le formulaire de recherche.
   réafficher que les recherches archivées sur une période précise.
 - **Fiche hôte : IP** (en haut à droite) : tape une IP (ex. `8.8.8.8`) pour
   voir sa fiche et sa ligne du temps.
+- **Carte** : filtre pays/ville/port sur tous les hôtes déjà scrapés et les
+  affiche sur une carte.
+- **Localiser une photo** : dépose un JPEG/TIFF pour en lire la position GPS
+  EXIF, si elle existe.
 
 ## Lancer les tests
 
@@ -114,7 +141,9 @@ réponses simulées via `Http::fake()`. Ils couvrent :
   l'historique ne déclenche aucune requête, et la récupération des
   positions exactes de chaque résultat individuel (`tests/Feature/SearchServiceTest.php`) ;
 - le garde-fou de cooldown sur les fiches hôte (`tests/Feature/HostSnapshotServiceTest.php`) ;
-- le filtre par date/heure sur l'historique (`tests/Feature/SearchControllerTest.php`).
+- le filtre par date/heure sur l'historique (`tests/Feature/SearchControllerTest.php`) ;
+- le filtre pays/ville/port de la Carte, y compris qu'il ne garde que le
+  dernier instantané de chaque hôte (`tests/Feature/MapControllerTest.php`).
 
 ## Configuration (`.env`)
 

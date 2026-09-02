@@ -2,16 +2,37 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\FetchSearchResultLocationJob;
 use App\Models\Search;
 use App\Services\Shodan\SearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class SearchServiceTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_it_queues_one_result_location_job_per_listed_result_instead_of_fetching_them_inline(): void
+    {
+        Queue::fake();
+        Http::fake(['shodan.io/search*' => Http::response($this->searchFixture(), 200)]);
+
+        $search = $this->app->make(SearchService::class)->search('apache');
+
+        // The search itself is available immediately — no /host/{ip} calls
+        // block the request, they're only queued.
+        Http::assertSentCount(1);
+        $this->assertSame(10, $search->expected_result_count);
+        $this->assertCount(0, $search->hostSnapshots);
+
+        Queue::assertPushed(FetchSearchResultLocationJob::class, 10);
+        Queue::assertPushed(fn (FetchSearchResultLocationJob $job) => $job->search->is($search)
+            && $job->position === 0
+        );
+    }
 
     public function test_it_persists_a_search_and_its_rankings_without_ever_calling_the_real_site(): void
     {

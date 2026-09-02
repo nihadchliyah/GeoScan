@@ -34,7 +34,7 @@ class SearchControllerTest extends TestCase
         $this->assertDatabaseCount('searches', 0);
     }
 
-    public function test_the_free_text_query_is_sent_to_shodan_as_is(): void
+    public function test_empty_filter_fields_are_left_out_of_the_query(): void
     {
         Http::fake(['shodan.io/*' => Http::response($this->fixture(), 200)]);
 

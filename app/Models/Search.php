@@ -18,6 +18,7 @@ class Search extends Model
     protected $fillable = [
         'query',
         'total_results',
+        'expected_result_count',
         'searched_at',
     ];
 
@@ -25,6 +26,7 @@ class Search extends Model
     {
         return [
             'total_results' => 'integer',
+            'expected_result_count' => 'integer',
             'searched_at' => 'datetime',
         ];
     }
@@ -45,6 +47,15 @@ class Search extends Model
     protected function rankingsByType(): Attribute
     {
         return Attribute::get(fn () => $this->rankings->groupBy(fn (SearchRanking $ranking) => $ranking->type->value));
+    }
+
+    /**
+     * Whether any queued result-location job has not attached its
+     * HostSnapshot to this search yet.
+     */
+    protected function resultsPending(): Attribute
+    {
+        return Attribute::get(fn () => $this->hostSnapshots->count() < $this->expected_result_count);
     }
 
     /**

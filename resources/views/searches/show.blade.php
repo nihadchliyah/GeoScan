@@ -17,6 +17,15 @@
         <div class="muted">résultats au total</div>
     </div>
 
+    @if ($search->results_pending)
+        <div class="card" id="results-pending-notice">
+            <p class="muted" style="margin:0;">
+                Localisation précise des résultats en cours ({{ $search->hostSnapshots->count() }}/{{ $search->expected_result_count }})…
+                Cette page se rafraîchit automatiquement.
+            </p>
+        </div>
+    @endif
+
     @php
         $grouped = $search->rankings->groupBy(fn ($r) => $r->type->value);
         $countryMarkers = $grouped->get('country', collect())
@@ -92,6 +101,12 @@
 @endsection
 
 @section('scripts')
+    @if ($search->results_pending)
+        <script>
+            setTimeout(function () { window.location.reload(); }, 5000);
+        </script>
+    @endif
+
     @if ($countryMarkers->isNotEmpty() || $resultMarkers->isNotEmpty())
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     @endif

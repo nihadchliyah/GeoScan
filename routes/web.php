@@ -1,11 +1,18 @@
 <?php
 
 use App\Http\Controllers\HostController;
+use App\Http\Controllers\MapController;
+use App\Http\Controllers\PhotoLocationController;
 use App\Http\Controllers\SearchController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/searches/create');
+
+Route::get('/map', [MapController::class, 'index'])->name('map.index');
+
+Route::get('/photo-location', [PhotoLocationController::class, 'create'])->name('photo-location.create');
+Route::post('/photo-location', [PhotoLocationController::class, 'store'])->name('photo-location.store');
 
 Route::get('/hosts', function (Request $request) {
     $ip = trim((string) $request->query('ip'));
