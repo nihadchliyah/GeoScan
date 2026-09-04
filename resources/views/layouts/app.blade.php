@@ -145,7 +145,6 @@
         <nav>
             <a href="{{ route('searches.create') }}">Nouvelle recherche</a>
             <a href="{{ route('searches.index') }}">Historique</a>
-            <a href="{{ route('map.index') }}">Carte</a>
             <form action="{{ route('hosts.lookup') }}" method="GET">
                 <input type="text" name="ip" placeholder="Fiche hôte : IP">
                 <button type="submit">Voir</button>

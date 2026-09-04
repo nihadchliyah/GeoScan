@@ -1,14 +1,14 @@
 <?php
 
 use App\Http\Controllers\HostController;
-use App\Http\Controllers\MapController;
 use App\Http\Controllers\SearchController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/searches/create');
 
-Route::get('/map', [MapController::class, 'index'])->name('map.index');
+// The map now lives on the search form itself (see SearchController::create).
+Route::redirect('/map', '/searches/create');
 
 Route::get('/hosts', function (Request $request) {
     $ip = trim((string) $request->query('ip'));

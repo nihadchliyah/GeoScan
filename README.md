@@ -7,7 +7,7 @@ hôte, et leur géolocalisation.
 
 ## Ce que fait l'application
 
-Trois parcours, accessibles depuis le menu en haut de chaque page :
+Deux parcours, accessibles depuis le menu en haut de chaque page :
 
 ### 1. Recherche (`/searches/create`)
 
@@ -18,6 +18,18 @@ produits, systèmes d'exploitation), et **archive** le résultat en base.
 Consulter cette recherche plus tard (page *Historique*) ne relance
 **jamais** de requête vers Shodan : c'est une relecture pure de ce qui a
 été enregistré.
+
+Cette même page affiche aussi, en dessous du formulaire, une **carte de
+tout ce qui a déjà été scrapé** — filtrable par pays, ville, port,
+organisation, FAI, ASN, produit/techno, nom d'hôte ou domaine. Ce n'est
+jamais une requête vers Shodan : une relecture filtrée de la base locale
+(uniquement le dernier instantané de chaque hôte). C'est la façon dont
+l'appli obtient un filtrage façon Shodan **sans connexion** — puisque
+Shodan lui-même refuse ces filtres en anonyme (voir avertissement
+ci-dessous) : on scrape en requête libre, puis on filtre nous-mêmes ce
+qu'on a déjà accumulé. Cliquer un marqueur sur la carte relance
+directement la page filtrée sur le pays ou l'organisation de cet hôte.
+Plus on lance de recherches libres, plus la carte a de données à filtrer.
 
 La page de résultats liste aussi individuellement chaque IP trouvée (une
 dizaine, la limite anonyme). Pour chacune, l'appli va chercher sa fiche
@@ -52,19 +64,6 @@ La page affiche l'instantané le plus récent — avec une petite carte
 OpenStreetMap positionnant l'IP — plus une ligne du temps de tous les
 précédents, utile pour voir un hôte changer d'organisation ou de ports
 ouverts entre deux visites.
-
-### 3. Carte (`/map`)
-
-Filtre **pays, ville, port, organisation, FAI, ASN, produit/techno, nom
-d'hôte ou domaine** sur l'ensemble des fiches hôte déjà collectées, toutes
-recherches et consultations confondues, et affiche les correspondances sur
-une carte. Ce n'est jamais une requête vers Shodan : c'est une relecture
-filtrée de la base locale (uniquement le dernier instantané de chaque
-hôte). C'est la façon dont l'appli obtient un filtrage façon Shodan **sans
-connexion** — puisque Shodan lui-même refuse ces filtres en anonyme (voir
-avertissement ci-dessous) : on scrape en requête libre, puis on filtre
-nous-mêmes ce qu'on a déjà accumulé. Plus on lance de recherches libres,
-plus la carte a de données à filtrer.
 
 ### Schéma de données
 
@@ -118,14 +117,15 @@ Ouvre ensuite [http://127.0.0.1:8000](http://127.0.0.1:8000) — tu es
 redirigé vers le formulaire de recherche.
 
 - **Nouvelle recherche** : tape une requête libre (ex. `apache`) et lance-la.
+  En dessous, la carte de tout ce qui a déjà été scrapé, filtrable
+  (pays/ville/port/organisation/FAI/ASN/produit/nom d'hôte) et dont les
+  marqueurs filtrent directement au clic.
 - **Historique** : liste toutes les recherches déjà archivées ; cliquer sur
   une entrée la réaffiche telle qu'enregistrée, sans nouvelle requête. Un
   filtre « Du / Au » (date + heure, à la seconde près) permet de ne
   réafficher que les recherches archivées sur une période précise.
 - **Fiche hôte : IP** (en haut à droite) : tape une IP (ex. `8.8.8.8`) pour
   voir sa fiche et sa ligne du temps.
-- **Carte** : filtre pays/ville/port/organisation/FAI/ASN/produit/nom
-  d'hôte sur tous les hôtes déjà scrapés et les affiche sur une carte.
 
 ## Lancer les tests
 
@@ -145,8 +145,9 @@ réponses simulées via `Http::fake()`. Ils couvrent :
   (`tests/Feature/Jobs/FetchSearchResultLocationJobTest.php`) ;
 - le garde-fou de cooldown sur les fiches hôte (`tests/Feature/HostSnapshotServiceTest.php`) ;
 - le filtre par date/heure sur l'historique (`tests/Feature/SearchControllerTest.php`) ;
-- tous les filtres de la Carte, y compris qu'elle ne garde que le dernier
-  instantané de chaque hôte (`tests/Feature/MapControllerTest.php`).
+- tous les filtres de la carte du formulaire de recherche, y compris
+  qu'elle ne garde que le dernier instantané de chaque hôte
+  (`tests/Feature/SearchCreateMapFilterTest.php`).
 
 ## Configuration (`.env`)
 

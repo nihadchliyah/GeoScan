@@ -7,7 +7,7 @@ use App\Models\HostSnapshot;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class MapControllerTest extends TestCase
+class SearchCreateMapFilterTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -19,7 +19,7 @@ class MapControllerTest extends TestCase
         $german = Host::factory()->create();
         HostSnapshot::factory()->for($german)->create(['country' => 'Germany', 'latitude' => 52.52, 'longitude' => 13.40]);
 
-        $response = $this->get(route('map.index', ['country' => 'France']));
+        $response = $this->get(route('searches.create', ['country' => 'France']));
 
         $response->assertOk();
         $response->assertSeeText($french->ip);
@@ -34,7 +34,7 @@ class MapControllerTest extends TestCase
         $withoutPort80 = Host::factory()->create();
         HostSnapshot::factory()->for($withoutPort80)->create(['open_ports' => [22], 'latitude' => 52.52, 'longitude' => 13.40]);
 
-        $response = $this->get(route('map.index', ['port' => 80]));
+        $response = $this->get(route('searches.create', ['port' => 80]));
 
         $response->assertOk();
         $response->assertSeeText($withPort80->ip);
@@ -57,8 +57,8 @@ class MapControllerTest extends TestCase
             'longitude' => 2.35,
         ]);
 
-        $matchingOldCountry = $this->get(route('map.index', ['country' => 'Germany']));
-        $matchingNewCountry = $this->get(route('map.index', ['country' => 'France']));
+        $matchingOldCountry = $this->get(route('searches.create', ['country' => 'Germany']));
+        $matchingNewCountry = $this->get(route('searches.create', ['country' => 'France']));
 
         $matchingOldCountry->assertDontSeeText($host->ip);
         $matchingNewCountry->assertSeeText($host->ip);
@@ -72,7 +72,7 @@ class MapControllerTest extends TestCase
         $other = Host::factory()->create();
         HostSnapshot::factory()->for($other)->create(['organization' => 'OVH SAS', 'latitude' => 48.85, 'longitude' => 2.35]);
 
-        $response = $this->get(route('map.index', ['organization' => 'Google']));
+        $response = $this->get(route('searches.create', ['organization' => 'Google']));
 
         $response->assertOk();
         $response->assertSeeText($google->ip);
@@ -87,7 +87,7 @@ class MapControllerTest extends TestCase
         $other = Host::factory()->create();
         HostSnapshot::factory()->for($other)->create(['isp' => 'Free Pro SAS', 'latitude' => 52.52, 'longitude' => 13.40]);
 
-        $response = $this->get(route('map.index', ['isp' => 'Orange']));
+        $response = $this->get(route('searches.create', ['isp' => 'Orange']));
 
         $response->assertOk();
         $response->assertSeeText($orange->ip);
@@ -102,7 +102,7 @@ class MapControllerTest extends TestCase
         $other = Host::factory()->create();
         HostSnapshot::factory()->for($other)->create(['asn' => 'AS16276', 'latitude' => 48.85, 'longitude' => 2.35]);
 
-        $response = $this->get(route('map.index', ['asn' => 'AS15169']));
+        $response = $this->get(route('searches.create', ['asn' => 'AS15169']));
 
         $response->assertOk();
         $response->assertSeeText($matching->ip);
@@ -117,7 +117,7 @@ class MapControllerTest extends TestCase
         $apache = Host::factory()->create();
         HostSnapshot::factory()->for($apache)->create(['web_technologies' => ['Apache HTTP Server'], 'latitude' => 52.52, 'longitude' => 13.40]);
 
-        $response = $this->get(route('map.index', ['product' => 'nginx']));
+        $response = $this->get(route('searches.create', ['product' => 'nginx']));
 
         $response->assertOk();
         $response->assertSeeText($nginx->ip);
@@ -132,7 +132,7 @@ class MapControllerTest extends TestCase
         $other = Host::factory()->create();
         HostSnapshot::factory()->for($other)->create(['hostnames' => ['host.other.net'], 'domains' => ['other.net'], 'latitude' => 52.52, 'longitude' => 13.40]);
 
-        $response = $this->get(route('map.index', ['hostname' => 'example.com']));
+        $response = $this->get(route('searches.create', ['hostname' => 'example.com']));
 
         $response->assertOk();
         $response->assertSeeText($matching->ip);
@@ -144,9 +144,29 @@ class MapControllerTest extends TestCase
         $host = Host::factory()->create();
         HostSnapshot::factory()->for($host)->create(['latitude' => null, 'longitude' => null]);
 
-        $response = $this->get(route('map.index'));
+        $response = $this->get(route('searches.create'));
 
         $response->assertOk();
         $response->assertDontSeeText($host->ip);
+    }
+
+    public function test_a_marker_links_to_filtering_by_its_own_country_and_organization(): void
+    {
+        $host = Host::factory()->create();
+        HostSnapshot::factory()->for($host)->create([
+            'country' => 'France',
+            'organization' => 'OVH SAS',
+            'latitude' => 48.85,
+            'longitude' => 2.35,
+        ]);
+
+        $response = $this->get(route('searches.create'));
+
+        // The marker data is JSON-embedded in an inline <script>, so the
+        // URL's slashes come out escaped (\/) — assert on the query string
+        // rather than the full URL.
+        $response->assertOk();
+        $response->assertSee('country=France', false);
+        $response->assertSee('organization=OVH', false);
     }
 }
