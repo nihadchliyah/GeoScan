@@ -15,6 +15,13 @@
         <h1><code>{{ $search->query }}</code></h1>
         <div class="stat">{{ number_format($search->total_results, 0, ',', ' ') }}</div>
         <div class="muted">résultats au total</div>
+        <p class="muted" style="margin:.75rem 0 0;">
+            Tu as une image (capture de webcam, etc.) et tu veux savoir de quelle IP elle vient ?
+            Shodan a son propre navigateur d'images, mais réservé aux comptes connectés (refusé en
+            anonyme, testé) — cette appli ne s'y connecte pas, donc pas de recherche par image ici.
+            Tu peux comparer manuellement, connecté avec ton propre compte, sur
+            <a href="https://images.shodan.io/?query={{ urlencode($search->query) }}" target="_blank" rel="noopener noreferrer">images.shodan.io</a>.
+        </p>
     </div>
 
     @if ($search->results_pending)

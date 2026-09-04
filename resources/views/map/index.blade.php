@@ -29,12 +29,32 @@
                     <label for="port">Port</label>
                     <input type="text" id="port" name="port" value="{{ $filters['port'] ?? '' }}" placeholder="80">
                 </div>
+                <div>
+                    <label for="organization">Organisation</label>
+                    <input type="text" id="organization" name="organization" value="{{ $filters['organization'] ?? '' }}" placeholder="Google LLC">
+                </div>
+                <div>
+                    <label for="isp">FAI</label>
+                    <input type="text" id="isp" name="isp" value="{{ $filters['isp'] ?? '' }}" placeholder="Orange">
+                </div>
+                <div>
+                    <label for="asn">ASN</label>
+                    <input type="text" id="asn" name="asn" value="{{ $filters['asn'] ?? '' }}" placeholder="AS15169">
+                </div>
+                <div>
+                    <label for="product">Produit / techno</label>
+                    <input type="text" id="product" name="product" value="{{ $filters['product'] ?? '' }}" placeholder="nginx">
+                </div>
+                <div>
+                    <label for="hostname">Nom d'hôte / domaine</label>
+                    <input type="text" id="hostname" name="hostname" value="{{ $filters['hostname'] ?? '' }}" placeholder="example.com">
+                </div>
             </div>
             @error('port')
                 <div class="error">{{ $message }}</div>
             @enderror
             <button type="submit">Filtrer</button>
-            @if (($filters['country'] ?? null) || ($filters['city'] ?? null) || ($filters['port'] ?? null))
+            @if (collect($filters)->filter()->isNotEmpty())
                 <a href="{{ route('map.index') }}" class="muted" style="margin-left:.75rem;">Réinitialiser</a>
             @endif
         </form>
