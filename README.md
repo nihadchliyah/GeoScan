@@ -7,7 +7,7 @@ hôte, et leur géolocalisation.
 
 ## Ce que fait l'application
 
-Quatre parcours, accessibles depuis le menu en haut de chaque page :
+Trois parcours, accessibles depuis le menu en haut de chaque page :
 
 ### 1. Recherche (`/searches/create`)
 
@@ -65,17 +65,6 @@ connexion** — puisque Shodan lui-même refuse ces filtres en anonyme (voir
 avertissement ci-dessous) : on scrape en requête libre, puis on filtre
 nous-mêmes ce qu'on a déjà accumulé. Plus on lance de recherches libres,
 plus la carte a de données à filtrer.
-
-### 4. Localiser une photo (`/photo-location`)
-
-Aucun rapport avec Shodan : lit les coordonnées GPS dans les métadonnées
-EXIF d'un fichier JPEG/TIFF (celles qu'un téléphone y écrit si la
-localisation était activée). La photo n'est jamais conservée sur le
-serveur — seul son contenu est lu le temps de la requête. Un PNG, un WEBP
-ou une capture d'écran ne contiennent jamais d'EXIF, donc jamais de
-position. En cas de doute sur pourquoi une photo donnée n'a rien donné,
-`php artisan app:inspect-photo-exif chemin/vers/photo.jpg` détaille ce que
-PHP a réellement trouvé dans le fichier.
 
 ### Schéma de données
 
@@ -137,8 +126,6 @@ redirigé vers le formulaire de recherche.
   voir sa fiche et sa ligne du temps.
 - **Carte** : filtre pays/ville/port/organisation/FAI/ASN/produit/nom
   d'hôte sur tous les hôtes déjà scrapés et les affiche sur une carte.
-- **Localiser une photo** : dépose un JPEG/TIFF pour en lire la position GPS
-  EXIF, si elle existe.
 
 ## Lancer les tests
 
@@ -159,10 +146,7 @@ réponses simulées via `Http::fake()`. Ils couvrent :
 - le garde-fou de cooldown sur les fiches hôte (`tests/Feature/HostSnapshotServiceTest.php`) ;
 - le filtre par date/heure sur l'historique (`tests/Feature/SearchControllerTest.php`) ;
 - tous les filtres de la Carte, y compris qu'elle ne garde que le dernier
-  instantané de chaque hôte (`tests/Feature/MapControllerTest.php`) ;
-- la lecture EXIF (conversion DMS→décimal, fichier sans métadonnées) et le
-  parcours de dépôt de photo (`tests/Unit/Support/ExifGpsReaderTest.php`,
-  `tests/Feature/PhotoLocationControllerTest.php`).
+  instantané de chaque hôte (`tests/Feature/MapControllerTest.php`).
 
 ## Configuration (`.env`)
 
